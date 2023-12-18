@@ -13,7 +13,12 @@ def create_database_table(cursor):
             base_experience INTEGER,
             types JSONB,
             abilities JSONB,
-            stats JSONB
+            hp INTEGER,
+            attack INTEGER,
+            defense INTEGER,
+            special_attack INTEGER,
+            special_defense INTEGER,
+            speed INTEGER
         )
     """)
     print("[+] created `pokemon` table")
@@ -26,7 +31,7 @@ def fetch_pokemon_data(url):
     else:
         print("Ошибка при получении данных:", response.status_code)
         return []
-    
+
 def get_pokemon_details(url):
     response = requests.get(url)
 
@@ -36,47 +41,47 @@ def get_pokemon_details(url):
         height = data['height']
         weight = data['weight']
         base_experience = data['base_experience']
-        
+
         types_data = data['types']
         types = [t['type']['name'] for t in types_data]
 
         abilities_data = data['abilities']
         abilities = [t['ability']['name'] for t in abilities_data]
-        
+
         stats_data = data['stats']
-        stats = [f'"{t['stat']['name']}":"{t['base_stat']}' for t in stats_data]
+        stats = {t['stat']['name']: int(t['base_stat']) for t in stats_data}
 
         return name, height, weight, base_experience, types, abilities, stats
     else:
         print("Ошибка при получении данных о покемоне:", response.status_code)
         return None
-
-
-
+    
 def insert_pokemon_data(cursor, name, height, weight, base_experience, types, abilities, stats):
     cursor.execute("""
-        INSERT INTO pokemon (name, height, weight, base_experience, types, abilities, stats)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (name, height, weight, base_experience, json.dumps(types), json.dumps(abilities), json.dumps(stats)))
-    print(f"[+] Inserted `{name}`")
+        INSERT INTO pokemon (name, height, weight, base_experience, types, abilities, hp, attack, defense, special_attack, special_defense, speed)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        name, height, weight, base_experience, json.dumps(types), json.dumps(abilities),
+        stats.get('hp', 0), stats.get('attack', 0), stats.get('defense', 0),
+        stats.get('special-attack', 0), stats.get('special-defense', 0), stats.get('speed', 0)
+    ))
+    print(f"[+] Вставлено `{name}`")
 
 
 def main():
-    
     conn = psycopg2.connect(
-    host="localhost",
-    database="pokemonDB",
-    user="postgres",
-    password="admin"
-   
-)
+        host="localhost",
+        database="pokemonDB",
+        user="postgres",
+        password="admin"
+    )
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     # Создание таблицы в базе данных PostgreSQL
     create_database_table(cursor)
 
     # Запрос к API для получения информации о покемонах
-    url = "https://pokeapi.co/api/v2/pokemon/?limit=10"
+    url = "https://pokeapi.co/api/v2/pokemon/?limit=5"
     pokemon_list = fetch_pokemon_data(url)
 
     # Обработка данных и сохранение в базу данных
